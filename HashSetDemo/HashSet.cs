@@ -1,94 +1,126 @@
-﻿using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Collections;
 
 namespace HashSetDemo
 {
     public class HashSet<T> : IEnumerable<T>
     {
-        private T[] _set;
+        private List<T>[] _set = new List<T>[7];
         private int _count;
-        private EqualityComparer<T> _comparer = EqualityComparer<T>.Default;
+
+        public int Count { get { return _count; } }
 
         public HashSet()
         {
-            _set = Array.Empty<T>();
             _count = 0;
         }
 
         public HashSet(T[] set)
         {
-            _set = set;
             _count = set.Length;
+            _set = new List<T>[_count];
+
+            foreach (T item in set)
+            {
+                this.Add(item);
+            }
         }
 
         public HashSet(int capacity)
         {
-            _set = new T[capacity];
+            _set = new List<T>[capacity];
             _count = 0;
         }
 
-        public HashSet(IEnumerable<T> set)
+        public HashSet(IEnumerable<T> set) : this(set.ToArray())
         {
-            _count = set.Count();
-            _set = new T[_count];
 
-            int i = 0;
-            foreach(var item in set)
-            {
-                _set[i] = item;
-                i++;
-            }
         }
 
         public bool Add(T value)
         {
-            if (_count > 0)
-            {
-                foreach (var item in _set)
-                {
-                    if (item.Equals(value))
-                    {
-                        return false;
-                    }
-                }
-            }
+            int index = Math.Abs(value.GetHashCode()) % _set.Length;
 
-            if (_count != 0 && _count == _set.Length)
+            if (_set[index] != null && _set[index].Contains(value))
             {
-                Array.Resize(ref _set, _count * 2);
+                return false;
             }
-
-            if (_count == 0)
+            
+            if (_set[index] == null)
             {
-                Array.Resize(ref _set, 1);
+                _set[index] = new List<T>();
             }
-
-            _set[_count] = value;
+            _set[index].Add(value);
             _count++;
 
+
+            if (_count * 10 >= _set.Length * 7)
+            {
+                Resize();
+            }
+
             return true;
+        }
+
+        public bool Contains(T value)
+        {
+            int index = Math.Abs(value.GetHashCode()) % _set.Length;
+
+            if (_set[index] != null && _set[index].Contains(value))
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        public bool Remove(T value)
+        {
+            int index = Math.Abs(value.GetHashCode()) % _set.Length;
+
+            if (_set[index] != null && _set[index].Contains(value))
+            {
+                _set[index].Remove(value);
+                _count--;
+                return true;
+            }
+
+            return false;
         }
 
         public IEnumerator<T> GetEnumerator()
         {
             var initialSet = _set;
-            for (int i = 0; i < _count; i++)
+            for (int i = 0; i < _set.Length; i++)
             {
                 if (initialSet != _set)
                 {
                     throw new InvalidOperationException("Cannot change set while iterating");
                 }
-                yield return _set[i];
+                if (_set[i] != null)
+                {
+                    foreach(var item in _set[i])
+                    {
+                        yield return item;
+                    }
+                }
             }
         }
 
         IEnumerator IEnumerable.GetEnumerator()
         {
             return GetEnumerator();
+        }
+
+        private void Resize() 
+        {
+            var items = _set.SelectMany(list => (IEnumerable<T>)list);
+
+            _set = new List<T>[(_set.Length + 1) * 2 - 1];
+
+            foreach (var item in items)
+            {
+                Add(item);
+            }
         }
     }
 }
